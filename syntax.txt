@@ -1,0 +1,174 @@
+Tokens:
+
+( ) [ ] { }
+
+Unary:
+
++ - ! ~ & *
+
+Binary:
+
++ - | ^ 
+* / % &
+<< >> 
+== != < <= > >=
+&&
+||
+?:
+
+Assign:
+
+= 
+COLON_ASSIGN = ':=' 
+ADD_ASSIGN = '+=' 
+SUB_ASSIGN = '-=' 
+OR_ASSIGN = '|='
+XOR_ASSIGN = '^='
+RSHIFT_ASSIGN = '>>='
+LSHIFT_ASSIGN = '<<='
+MUL_ASSIGN = '*='
+DIV_ASSIGN = '/='
+MOD_ASSIGN = '%='
+AND_ASSIGN = '&='
+INC = '++'
+DEC = '--'
+
+Token Rules:
+
+NAME = [a-zA-Z_][a-zA-Z0-9_]*
+INT = 0 | [1-9][0-9]* | 0[xX][0-9a-fA-F]+ | 0[0-7]+ | 0[bB][0-1]+
+FLOAT = [0-9]*[.]?[0-9]*([eE][+-]?[0-9]+)?
+CHAR = '\'' . '\''
+STR = '"' [^"]* '"'
+
+
+EBNF Grammar:
+
+type_list: type (',' type)*
+name_list: NAME (',' NAME)*
+
+base_type
+	: NAME
+	| 'function' '(' type_list? ')' '->' type
+	| '(' type ')'
+
+type
+	: base_type ('[' expr? ']' | '*')*
+
+// function() -> int[]		means function that returns an int array
+// (function() -> int)[]	means an array of functions that return ints
+
+############################################
+# ------------- Declarations ------------- #
+############################################
+
+enum_item
+	: NAME ('=' expr)?
+
+enum_items
+	: enum_item (',' enum_item)* ','?
+
+enum_decl
+	: NAME '{' enum_items? '}'
+
+aggregate_field
+	: name_list ':' type ';'
+
+aggregate_decl
+	: NAME '{' aggregate_field* '}'
+
+var_decl
+	: NAME ('=' expr | ':' type ('=' expr)?)
+
+const_decl
+	: NAME '=' expr
+
+typedef_decl
+	: NAME '=' type
+
+func_arg
+	: NAME ':' type
+
+func_arg_list
+	: func_arg (',' func_arg)*
+
+func_decl
+	: NAME '(' func_arg_list? ')' ('->' type)? stmt_block
+
+decl
+	: 'enum' enum_decl
+	| 'struct' aggregate_decl
+	| 'union' aggregate_decl
+	| 'var' var_decl
+	| 'const' const_decl
+	| 'typedef' typedef_decl
+	| func_decl
+
+##########################################
+# ------------- Statements ------------- #
+##########################################
+
+assign_op
+	: '=' | COLON_ASSIGN | ADD_ASSIGN | OR_ASSIGN | ...
+
+switch_case
+	: (CASE expr | DEFAULT) ':' stmt*
+
+switch_block
+	: '{' switch_case* '}' 
+
+stmt
+	: IF '(' expr ')' stmt_block (ELSE IF '(' expr ')' stmt_block)* (ELSE stmt_block)?
+	| WHILE '(' expr ')' stmt_block
+	| FOR '(' stmt_list? ';' expr? ';' stmt_list? ')' stmt_block
+	| DO stmt_block 'while' '(' expr ')' ';'
+	| SWITCH '(' expr ')' switch_block
+	| RETURN expr ';'
+	| BREAK ';'
+	| CONTINUE ';'
+	| '{' stmt* '}'
+	| expr (INC | DEC | assign_op expr)?
+
+###########################################
+# ------------- Expressions ------------- #
+###########################################
+
+typespec
+	: NAME | '(' ':' type ')'
+
+operand_expr
+	: INT
+	| FLOAT
+	| STRING
+	| NAME
+	| typespec? '{' expr_list '}'
+	| CAST '(' type ')' expr
+	| '(' expr ')'
+
+base_expr
+	: operand_expr ('(' expr_list ')' | '[' expr ']' | '.' NAME)*
+
+unary_expr
+	: ('+' | '-' | '!' | '~' | '&' | '*') unary_expr
+	| base_expr
+
+mul_expr
+	: unary_expr (('*' | '/' | '%' | '&' | '<<' | '>>') unary_expr)*
+
+add_expr
+	: mul_expr (('+' | '-' | '|' | '^') mul_expr)*
+
+cmp_expr
+	: add_expr (('==' | '!=' | '<' | '>' | '<=' '>=') add_expr)*
+
+and_expr
+	: cmp_expr ('&&' cmp_expr)*
+
+or_expr
+	: and_expr ('||' and_expr)*
+
+ternary_expr
+	: or_expr ('?' ternary_expr ':' ternary_expr)?
+
+expr
+	: ternary_expr
